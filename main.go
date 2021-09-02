@@ -1,7 +1,6 @@
 package main
 
 import (
-    "fmt"
     "time"
     "strconv"
     "encoding/hex"
@@ -11,11 +10,15 @@ import (
 type Blockchain []*Block
 
 type Block struct {
-    Index     int
-    Timestamp int64
-    Data    []byte
-    Hash    []byte
-    PrevHash   []byte
+	Index     int
+	Timestamp int64
+	Data    []byte
+	Hash    []byte
+	PrevHash   []byte
+}
+
+func (b *Block) IsValid() bool {
+	return true
 }
 
 func (b *Block) GenerateHash() {
@@ -27,13 +30,14 @@ func (b *Block) GenerateHash() {
 func (bc *Blockchain) GenNewBlock(data string) {
     t := time.Now().UnixNano()
     prevBlock := (*bc)[len(*bc)-1]
-    block := &Block{prevBlock.Index+1, t, []byte(data), []byte{}, prevBlock.Hash}
-    block.GenerateHash()
+	block := &Block{prevBlock.Index+1, t, []byte(data), []byte{}, prevBlock.Hash}
+	block.GenerateHash()
     *bc = append((*bc), block)
 }
 
 func main() {
-    genesisBlock := &Block{0, time.Now().UnixNano(), []byte("GENESIS"), []byte{}, []byte{}}
+    db := dbConn()
+	genesisBlock := &Block{0, time.Now().UnixNano(), []byte("GENESIS"), []byte{}, []byte{}}
     genesisBlock.GenerateHash()
     chain := Blockchain{genesisBlock}
     testArr := []string{"DATA1", "DATA2", "DATA3"}
@@ -41,6 +45,10 @@ func main() {
         chain.GenNewBlock(v)
     }
     for _, bl := range chain {
-        fmt.Printf("id=%d;data=%s;hash=%s;old_hash=%s\n",bl.Index, string(bl.Data), hex.EncodeToString(bl.Hash), hex.EncodeToString(bl.PrevHash))
+        insert, err := db.Prepare("INSERT INTO bc(id, timestamp,data,hash,prev_hash) VALUES(?,?,?,?,?)")
+        if err != nil {
+            panic(err.Error())
+        }
+        insert.Exec(bl.Index, bl.Timestamp, string(bl.Data), hex.EncodeToString(bl.Hash), hex.EncodeToString(bl.PrevHash))
     }
 }
